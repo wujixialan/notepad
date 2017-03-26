@@ -1,0 +1,300 @@
+package com.notepad.ui;
+
+import javax.swing.*;
+import javax.swing.undo.UndoManager;
+import java.awt.*;
+import java.awt.datatransfer.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
+import java.io.*;
+
+/**
+ * Created by root on 17-1-14.
+ */
+public class Main extends JFrame implements ActionListener {
+    private File curFileName = null;
+    private JMenu file = null, edit = null, help = null;
+    private JMenuItem newCon = null, open = null, helpCon = null, save = null, saveAs = null, close = null;
+    private JMenuItem repeal = null, cut = null, copy = null, paste = null, delete = null;
+    private JMenuBar menuBar = null;
+    private JPanel panel = null, outPanel = null;
+    private JTextArea textArea = null;
+    private KeyStroke keyNewFile = null, keyOpen = null, keySave = null, keySaveAs = null,
+            keyRepeal = null, keyCut = null, keyCopy = null, keyPaste = null, keyDelete = null;
+//    定义了一个剪贴板，并且获取系统的剪贴板
+    private Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+//    存放选中的文本内容
+    private StringSelection stringSelection = null;
+    private UndoManager undoManager = new UndoManager();
+    private Transferable contents = null;
+    private DataFlavor flavor = null;
+    private String selectText;
+
+
+    public Main() {
+        file = new JMenu("文件");
+        newCon = new JMenuItem("新建");
+        textArea = new JTextArea();
+        textArea.setPreferredSize(new Dimension(1300, 800));
+        textArea.setFont(new Font("宋体", Font.ITALIC, 16));
+        textArea.getDocument().addUndoableEditListener(undoManager);
+        open = new JMenuItem("打开");
+        save = new JMenuItem("保存");
+        saveAs = new JMenuItem("另存为");
+        close = new JMenuItem("关闭");
+
+        edit = new JMenu("编辑");
+        repeal = new JMenuItem("撤销");
+        cut = new JMenuItem("剪切");
+        copy = new JMenuItem("复制");
+        paste = new JMenuItem("粘贴");
+        delete = new JMenuItem("删除");
+
+        panel = (JPanel) this.getContentPane();
+        outPanel = new JPanel();
+//        添加快捷键， KeyEvent.VK_N 代表 N， InputEvent.CTRL_MASK 代表 Ctrl
+//        新建的快捷键 Ctrl+N
+        keyNewFile = KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_MASK);
+        newCon.setAccelerator(keyNewFile);
+
+//        打开的快捷键 Ctrl+O
+        keyOpen = KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_MASK);
+        open.setAccelerator(keyOpen);
+
+//        保存的快捷键 Ctrl + S
+        keySave = KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_MASK);
+        save.setAccelerator(keySave);
+
+//        另存为的快捷键 Ctrl + Shift + S
+        keySaveAs = KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.SHIFT_MASK + InputEvent.CTRL_MASK);
+        saveAs.setAccelerator(keySaveAs);
+
+//        撤销的快捷键 Ctrl + Z
+        keyRepeal = KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_MASK);
+        repeal.setAccelerator(keyRepeal);
+
+//        剪切的快捷键 Ctrl + X
+        keyCut = KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.CTRL_MASK);
+        cut.setAccelerator(keyCut);
+
+//        复制的快捷键 Ctrl + C
+        keyCopy = KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_MASK);
+        copy.setAccelerator(keyCopy);
+//        粘贴的快捷键 Ctrl + V
+        keyPaste = KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_MASK);
+        paste.setAccelerator(keyPaste);
+
+//        删除的快捷键 Ctrl + D
+        keyDelete = KeyStroke.getKeyStroke(KeyEvent.VK_D, InputEvent.CTRL_MASK);
+        delete.setAccelerator(keyDelete);
+
+//        文件一栏
+        newCon.addActionListener(this);
+        open.addActionListener(this);
+        save.addActionListener(this);
+        saveAs.addActionListener(this);
+        close.addActionListener(this);
+
+//        编辑一栏
+        repeal.addActionListener(this);
+        cut.addActionListener(this);
+        copy.addActionListener(this);
+        paste.addActionListener(this);
+        delete.addActionListener(this);
+
+        help = new JMenu("帮助");
+        helpCon = new JMenuItem("帮助");
+        menuBar = new JMenuBar();
+        file.add(newCon);
+        file.add(open);
+        file.add(save);
+        file.add(saveAs);
+        file.add(close);
+
+        edit.add(repeal);
+        edit.add(cut);
+        edit.add(copy);
+        edit.add(paste);
+        edit.add(delete);
+
+        help.add(helpCon);
+
+        menuBar.add(file);
+        menuBar.add(edit);
+        menuBar.add(help);
+        menuBar.setFont(new Font("宋体", Font.ITALIC, 16));
+        outPanel.add(textArea);
+
+        this.setJMenuBar(menuBar);
+        this.panel.add(outPanel);
+        this.setTitle("记事本");
+        this.setLocation(0, 0);
+        this.setSize(1300, 750);
+        this.setVisible(true);
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    }
+
+    public static void main(String[] args) {
+        new Main();
+    }
+
+
+    public void openDialog() {
+        File fileName = null;
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("请打开文件");
+        int returnVal = fileChooser.showOpenDialog(null);
+
+        fileChooser.setVisible(true);
+
+        if (JFileChooser.APPROVE_OPTION == returnVal) {
+            fileName = fileChooser.getSelectedFile().getAbsoluteFile();
+            this.setCurFileName(fileName);
+        } else if (JFileChooser.ERROR_OPTION == returnVal) {
+            JOptionPane.showMessageDialog(null, "打开错误");
+        } else if (JFileChooser.CANCEL_OPTION == returnVal) {
+            System.out.println("取消打开");
+        }
+    }
+
+    public void remove() {
+        outPanel.removeAll();
+        outPanel.repaint();
+    }
+
+    public void updateUI() {
+        outPanel.updateUI();
+    }
+
+    public File getCurFileName() {
+        return curFileName;
+    }
+
+    public void setCurFileName(File curFileName) {
+        this.curFileName = curFileName;
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        switch (e.getActionCommand()) {
+            case "新建":
+                remove();
+                textArea.setVisible(true);
+                textArea.getDocument().addUndoableEditListener(undoManager);
+                outPanel.add(textArea);
+                updateUI();
+                break;
+            case "打开":
+                openDialog();
+                readFile(this.getCurFileName(), textArea);
+                break;
+            case "保存":
+                if (this.getCurFileName() == null) {
+                    openDialog();
+                }
+                writeFile(this.getCurFileName(), textArea);
+                break;
+            case "另存为":
+                openDialog();
+                writeFile(this.getCurFileName(), textArea);
+                break;
+            case "关闭":
+                remove();
+                textArea.setVisible(false);
+                System.exit(0);
+                updateUI();
+                break;
+            case "撤销":
+                if(undoManager.canUndo()) {
+
+                }
+                break;
+            case "剪切":
+                selectText = textArea.getSelectedText();
+                stringSelection = new StringSelection(selectText);
+                clipboard.setContents(stringSelection, null);
+                int start = textArea.getSelectionStart();
+                int end = textArea.getSelectionEnd();
+                textArea.replaceRange("", start, end);
+                break;
+            case "复制":
+                selectText = textArea.getSelectedText();
+                stringSelection = new StringSelection(selectText);
+                clipboard.setContents(stringSelection, null);
+                break;
+            case "粘贴":
+                pasteContents();
+                break;
+            case "删除":
+                System.out.println("删除");
+                break;
+
+        }
+    }
+
+    /**
+     * 首先判断文件名是否为空， 文件名是否存在，文本框中的内容是否为空
+     *
+     * @param fileName 要读取的文件名
+     * @param ta       把读取的文件内容追加到 JTextArea 中
+     */
+    public void readFile(File fileName, JTextArea ta) {
+        if ((fileName == null) || (!fileName.exists()) || ta == null) {
+            return;
+        }
+
+        InputStreamReader read = null;
+        BufferedReader br = null;
+        try {
+            read = new InputStreamReader(new FileInputStream(fileName));
+            br = new BufferedReader(read);
+            String s = null;
+            while ((s = br.readLine()) != null) {
+                ta.append(s + "\n");
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                read.close();
+                br.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void writeFile(File fileName, JTextArea ta) {
+        PrintWriter write = null;
+        if ((fileName == null) || ta == null) {
+            return;
+        }
+        try {
+            write = new PrintWriter(fileName);
+            write.write(ta.getText());
+            write.flush();
+            write.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void pasteContents() {
+        contents = clipboard.getContents(this);
+        flavor = DataFlavor.stringFlavor;
+        if(contents.isDataFlavorSupported(flavor)) {
+            try {
+                selectText = (String) contents.getTransferData(flavor);
+                textArea.append(selectText);
+            } catch (UnsupportedFlavorException e1) {
+                e1.printStackTrace();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        }
+    }
+}
